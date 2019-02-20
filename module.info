@@ -1,0 +1,9 @@
+{
+    "author": "n3d.b0y",
+    "description": "The module automates PMKID attack",
+    "devices": [
+        "tetra"
+    ],
+    "title": "PMKIDAttack",
+    "version": "1.0"
+}
