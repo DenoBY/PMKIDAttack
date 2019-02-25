@@ -16,11 +16,20 @@ class PMKIDAttack extends Module
             case 'isConnected':
                 $this->isConnected();
                 break;
+            case 'wipeLog':
+                $this->wipeLog();
+                break;
+            case 'getLog':
+                $this->getLog();
+                break;
             case 'getInfo':
                 $this->getInfo();
                 break;
             case 'getDependenciesStatus':
                 $this->getDependenciesStatus();
+                break;
+            case 'forceManagerDependencies':
+                $this->forceManagerDependencies();
                 break;
             case 'managerDependencies':
                 $this->managerDependencies();
@@ -66,6 +75,28 @@ class PMKIDAttack extends Module
         }
     }
 
+    private function wipeLog()
+    {
+        if (!file_exists('/var/log/pmkidattack.log')) {
+            touch('/var/log/pmkidattack.log');
+        }
+
+	exec("rm /var/log/pmkidattack.log");
+
+	touch('/var/log/pmkidattack.log');
+    }
+    
+    private function getLog()
+    {
+        if (!file_exists('/var/log/pmkidattack.log')) {
+            touch('/var/log/pmkidattack.log');
+        }
+
+        $file = file_get_contents('/var/log/pmkidattack.log');
+       
+        $this->response = array("pmkidlog" => $file);
+    }
+
     private function getDependenciesStatus()
     {
         if (!file_exists('/tmp/PMKIDAttack.progress')) {
@@ -91,6 +122,17 @@ class PMKIDAttack extends Module
     protected function checkDependency()
     {
         return ((trim(exec("which hcxdumptool")) == '' ? false : true) && $this->uciGet("pmkidattack.module.installed"));
+    }
+
+    private function forceManagerDependencies()
+    {
+        if (!$this->checkDependency()) {
+            $this->execBackground(self::PATH_MODULE . "/scripts/dependencies.sh force install");
+            $this->response = array('success' => true);
+        } else {
+            $this->execBackground(self::PATH_MODULE . "/scripts/dependencies.sh force remove");
+            $this->response = array('success' => true);
+        }
     }
 
     private function managerDependencies()
