@@ -6,6 +6,7 @@ registerController('PMKIDAttack_IsConnected', ['$api', '$scope', '$rootScope', '
     $rootScope.unassociatedClients = [];
     $rootScope.outOfRangeClients = [];
     $rootScope.captureRunning = false;
+    $rootScope.log         = "LOG";
 
     var isConnected = function () {
         $api.request({
@@ -39,6 +40,29 @@ registerController('PMKIDAttack_IsConnected', ['$api', '$scope', '$rootScope', '
             isConnected();
         }
     }, 5000);
+}]);
+
+registerController('PMKIDAttack_Log', ['$api', '$scope', '$rootScope', '$interval', function ($api, $scope, $rootScope, $interval) {
+    $scope.wipe         = "Clear";
+    $scope.clear         = "Clear";
+
+    $scope.wipeLog = (function () {
+        $api.request({
+            module: "PMKIDAttack",
+            action: "wipeLog"
+        }, function (response) {
+        })
+    });
+ 
+    var interval = $interval(function () {
+        $api.request({
+            module: "PMKIDAttack",
+            action: "getLog"
+        }, function (response) {
+    	    $scope.pmkidlog         = response.pmkidlog;
+        })
+    }, 2000);
+
 }]);
 
 registerController('PMKIDAttack_Dependencies', ['$api', '$scope', '$rootScope', '$interval', function ($api, $scope, $rootScope, $interval) {
@@ -84,6 +108,26 @@ registerController('PMKIDAttack_Dependencies', ['$api', '$scope', '$rootScope', 
                 }
             });
         }, 2000);
+    });
+
+
+  $scope.forceManagerDependencies = (function () {
+        if ($scope.status.installed) {
+            $scope.install = "Installing...";
+        } else {
+            $scope.install = "Removing...";
+        }
+
+        $api.request({
+            module: 'PMKIDAttack',
+            action: 'forceManagerDependencies'
+        }, function (response) {
+            if (response.success === true) {
+                $scope.installLabel = "warning";
+                $scope.processing = true;
+                $scope.statusDependencies();
+            }
+        });
     });
 
     $scope.managerDependencies = (function () {
@@ -552,3 +596,4 @@ registerController('PMKIDAttack_ScanResults', ['$api', '$scope', '$interval', '$
         });
     }
 }]);
+

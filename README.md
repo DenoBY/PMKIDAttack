@@ -1,4 +1,9 @@
-## PMKIDAttack
+## PMKIDAttack [hcxdumptools baked-in]
+
+* This fork comes included with the hcxtools required to run the PMKID attack. 
+* This method avoids network dependencies for acquiring opkg binaries from another repo.
+
+* You can verify the authenticity of packages by comparing md5sums yourself.
 
 The module automates PMKID attack
 
