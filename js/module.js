@@ -1,65 +1,21 @@
-registerController('PMKIDAttack_IsConnected', ['$api', '$scope', '$rootScope', '$interval', function ($api, $scope, $rootScope, $interval) {
-    $rootScope.isConnected = false;
-    $rootScope.noDependencies = false;
-    $rootScope.running = false;
-    $rootScope.accessPoints = [];
-    $rootScope.unassociatedClients = [];
-    $rootScope.outOfRangeClients = [];
-    $rootScope.captureRunning = false;
-    $rootScope.log         = "LOG";
-
-    var isConnected = function () {
-        $api.request({
-            module: "PMKIDAttack",
-            action: "isConnected"
-        }, function (response) {
-            if (!response.success) {
-                $rootScope.isConnected = true;
-            } else {
-                $rootScope.isConnected = false;
-            }
-        });
-    };
-
-    $api.request({
-        module: "PMKIDAttack",
-        action: "getDependenciesStatus"
-    }, function (response) {
-        if (response.install == 'Install') {
-            $rootScope.noDependencies = true;
-            isConnected();
-        }
-
-        console.log(response.install);
-    });
-
-    var interval = $interval(function () {
-        if (!$rootScope.isConnected) {
-            $interval.cancel(interval);
-        } else {
-            isConnected();
-        }
-    }, 5000);
-}]);
-
 registerController('PMKIDAttack_Log', ['$api', '$scope', '$rootScope', '$interval', function ($api, $scope, $rootScope, $interval) {
-    $scope.wipe         = "Clear";
-    $scope.clear         = "Clear";
+    $scope.wipe = "Clear";
+    $scope.clear = "Clear";
+    $scope.pmkidlog = '';
 
-    $scope.wipeLog = (function () {
+    $scope.clearLog = (function () {
         $api.request({
             module: "PMKIDAttack",
-            action: "wipeLog"
-        }, function (response) {
-        })
+            action: "clearLog"
+        }, function (response) { })
     });
- 
-    var interval = $interval(function () {
+
+    $interval(function () {
         $api.request({
             module: "PMKIDAttack",
             action: "getLog"
         }, function (response) {
-    	    $scope.pmkidlog         = response.pmkidlog;
+            $scope.pmkidlog = response.pmkidlog;
         })
     }, 2000);
 
@@ -70,12 +26,12 @@ registerController('PMKIDAttack_Dependencies', ['$api', '$scope', '$rootScope', 
     $scope.installLabel = "default";
     $scope.processing = false;
     $rootScope.handshakeInfo = false;
+    $rootScope.noDependencies = false;
+    $rootScope.running = false;
+    $rootScope.captureRunning = false;
 
-    $rootScope.status = {
+    $scope.status = {
         installed: false,
-        generated: false,
-        refreshOutput: false,
-        refreshKnownHosts: false
     };
 
     $scope.refreshStatus = (function () {
@@ -90,6 +46,8 @@ registerController('PMKIDAttack_Dependencies', ['$api', '$scope', '$rootScope', 
 
             if ($scope.processing) {
                 $scope.statusDependencies();
+            } else {
+                $rootScope.noDependencies = response.installed;
             }
         })
     });
@@ -108,26 +66,6 @@ registerController('PMKIDAttack_Dependencies', ['$api', '$scope', '$rootScope', 
                 }
             });
         }, 2000);
-    });
-
-
-  $scope.forceManagerDependencies = (function () {
-        if ($scope.status.installed) {
-            $scope.install = "Installing...";
-        } else {
-            $scope.install = "Removing...";
-        }
-
-        $api.request({
-            module: 'PMKIDAttack',
-            action: 'forceManagerDependencies'
-        }, function (response) {
-            if (response.success === true) {
-                $scope.installLabel = "warning";
-                $scope.processing = true;
-                $scope.statusDependencies();
-            }
-        });
     });
 
     $scope.managerDependencies = (function () {
@@ -149,11 +87,23 @@ registerController('PMKIDAttack_Dependencies', ['$api', '$scope', '$rootScope', 
         });
     });
 
+    $api.request({
+        module: "PMKIDAttack",
+        action: "getDependenciesStatus"
+    }, function (response) {
+        if (response.install === 'Install') {
+            $rootScope.noDependencies = true;
+        }
+    });
+
     $scope.refreshStatus();
 }]);
 
 registerController('PMKIDAttack_ScanSettings', ['$api', '$scope', '$rootScope', '$interval', '$timeout', '$cookies', function ($api, $scope, $rootScope, $interval, $timeout, $cookies) {
     $rootScope.pmkids = [];
+    $rootScope.accessPoints = [];
+    $rootScope.unassociatedClients = [];
+    $rootScope.outOfRangeClients = [];
     $scope.scans = [];
     $scope.selectedScan = "";
     $scope.loadedScan = null;
@@ -547,45 +497,32 @@ registerController('PMKIDAttack_ScanResults', ['$api', '$scope', '$interval', '$
     $scope.orderByName = 'ssid';
     $rootScope.mac = '';
 
-    $api.request({
-        action: "getStatusAttack",
-        module: "PMKIDAttack"
-    }, function (response) {
-        if (response.success) {
-            $rootScope.captureRunning = true;
-            if (!$rootScope.intervalCheckHash) {
-                $rootScope.intervalCheckHash = $interval(function () {
-                    if ($rootScope.captureRunning) {
-                        $rootScope.catchPMKID();
-                        $rootScope.viewLog();
-                    }
-                }, 3000);
-            }
+    $scope.checkPMKID = (function() {
+        $rootScope.captureRunning = true;
+        if (!$rootScope.intervalCheckHash) {
+            $rootScope.intervalCheckHash = $interval(function () {
+                if ($rootScope.captureRunning) {
+                    $scope.catchPMKID();
+                    $rootScope.viewLog();
+                } else {
+                    $rootScope.stopAttack();
+                }
+            }, 2000);
         }
     });
 
-    $scope.startAttack = function (bssid) {
+    $scope.startAttack = (function (bssid) {
         $rootScope.mac = bssid;
         $api.request({
             action: 'startAttack',
             module: 'PMKIDAttack',
             bssid: bssid
         }, function (response) {
-            $rootScope.captureRunning = true;
-            if (!$rootScope.intervalCheckHash) {
-                $rootScope.intervalCheckHash = $interval(function () {
-                    if ($rootScope.captureRunning) {
-                        $rootScope.catchPMKID();
-                        $rootScope.viewLog();
-                    } else {
-                        $rootScope.stopAttack();
-                    }
-                }, 2000);
-            }
+            $scope.checkPMKID();
         });
-    };
+    });
 
-    $rootScope.catchPMKID = function () {
+    $scope.catchPMKID = (function () {
         $api.request({
             action: 'catchPMKID',
             module: 'PMKIDAttack'
@@ -594,6 +531,15 @@ registerController('PMKIDAttack_ScanResults', ['$api', '$scope', '$interval', '$
                 $rootScope.captureRunning = false;
             }
         });
-    }
+    });
+
+    $api.request({
+        action: "getStatusAttack",
+        module: "PMKIDAttack"
+    }, function (response) {
+        if (response.success) {
+            $scope.checkPMKID();
+        }
+    });
 }]);
 

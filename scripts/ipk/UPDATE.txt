@@ -1,1 +1,0 @@
-These ipk binaries should be updated along with newer versions of hcxtools
