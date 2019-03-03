@@ -56,33 +56,38 @@ class PMKIDAttack extends Module
         }
     }
 
-    protected function clearLog()
+    private function clearLog()
     {
         if (!file_exists(self::PATH_LOG_FILE)) {
             touch(self::PATH_LOG_FILE);
         }
 
-	    exec('rm ' . self::PATH_LOG_FILE);
-	    touch(self::PATH_LOG_FILE);
+        exec('rm ' . self::PATH_LOG_FILE);
+        touch(self::PATH_LOG_FILE);
     }
 
-    protected function getLog()
+    private function getLog()
     {
         if (!file_exists(self::PATH_LOG_FILE)) {
             touch(self::PATH_LOG_FILE);
         }
 
         $file = file_get_contents(self::PATH_LOG_FILE);
-       
+
         $this->response = array("pmkidlog" => $file);
     }
 
-    protected function formatLog($massage)
+    private function addLog($massage)
     {
-        return  '[' . date("Y-m-d H:i:s") . '] ' . $massage . PHP_EOL;
+        file_put_contents(self::PATH_LOG_FILE, $this->formatLog($massage), FILE_APPEND);
     }
 
-    protected function getDependenciesStatus()
+    private function formatLog($massage)
+    {
+        return '[' . date("Y-m-d H:i:s") . '] ' . $massage . PHP_EOL;
+    }
+
+    private function getDependenciesStatus()
     {
         if (!file_exists('/tmp/PMKIDAttack.progress')) {
             if ($this->checkDependency()) {
@@ -104,12 +109,12 @@ class PMKIDAttack extends Module
         }
     }
 
-    protected function checkDependency()
+    private function checkDependency()
     {
         return ((trim(exec("which hcxdumptool")) == '' ? false : true) && $this->uciGet("pmkidattack.module.installed"));
     }
 
-    protected function managerDependencies()
+    private function managerDependencies()
     {
         if (!$this->checkDependency()) {
             $this->execBackground(self::PATH_MODULE . "/scripts/dependencies.sh install");
@@ -120,7 +125,7 @@ class PMKIDAttack extends Module
         }
     }
 
-    protected function statusDependencies()
+    private function statusDependencies()
     {
         if (!file_exists('/tmp/PMKIDAttack.progress')) {
             $this->response = array('success' => true);
@@ -129,7 +134,7 @@ class PMKIDAttack extends Module
         }
     }
 
-    protected function startAttack()
+    private function startAttack()
     {
         $this->uciSet('pmkidattack.attack.bssid', $this->request->bssid);
 
@@ -137,14 +142,12 @@ class PMKIDAttack extends Module
         exec("echo " . $this->getFormatBSSID() . " > " . self::PATH_MODULE . "/filter.txt");
         exec(self::PATH_MODULE . "/scripts/PMKIDAttack.sh start " . $this->getFormatBSSID());
 
-        $massageLog = 'Start attack ' . $this->request->bssid;
-
-        file_put_contents(self::PATH_LOG_FILE, $this->formatLog($massageLog), FILE_APPEND);
+        $this->addLog('Start attack ' . $this->getBSSID());
 
         $this->response = array('success' => true);
     }
 
-    protected function stopAttack()
+    private function stopAttack()
     {
         $this->uciSet('pmkidattack.attack.run', '0');
 
@@ -157,27 +160,24 @@ class PMKIDAttack extends Module
         exec("rm -rf /tmp/" . $this->getFormatBSSID() . '.pcapng');
         exec("rm -rf " . self::PATH_MODULE . "/log/output.txt");
 
-        $massageLog = 'Stop attack ' . $this->getBSSID();
-
-        file_put_contents(self::PATH_LOG_FILE, $this->formatLog($massageLog), FILE_APPEND);
+        $this->addLog('Stop attack ' . $this->getBSSID());
 
         $this->response = array('success' => true);
     }
 
 
-    protected function catchPMKID()
+    private function catchPMKID()
     {
         if ($this->checkPMKID()) {
-            $massageLog = 'PMKID ' . $this->getBSSID() . ' intercepted!';
+            $this->addLog('PMKID ' . $this->getBSSID() . ' intercepted!');
 
-            file_put_contents(self::PATH_LOG_FILE, $this->formatLog($massageLog), FILE_APPEND);
             $this->response = array('success' => true);
         } else {
             $this->response = array('success' => false);
         }
     }
 
-    protected function getFormatBSSID()
+    private function getFormatBSSID()
     {
         $bssid = $this->uciGet('pmkidattack.attack.bssid');
         $bssidFormat = str_replace(':', '', $bssid);
@@ -185,12 +185,12 @@ class PMKIDAttack extends Module
         return $bssidFormat;
     }
 
-    protected function getBSSID()
+    private function getBSSID()
     {
         return $this->uciGet('pmkidattack.attack.bssid');
     }
 
-    protected function checkPMKID()
+    private function checkPMKID()
     {
         $searchLine = 'PMKIDs';
 
@@ -201,7 +201,7 @@ class PMKIDAttack extends Module
         return strpos($file, $searchLine) !== false;
     }
 
-    protected function getPMKIDFiles()
+    private function getPMKIDFiles()
     {
         $pmkids = [];
         exec("find -L " . self::PATH_MODULE . "/pcapng/ -type f -name \"*.**pcapng\" 2>&1", $files);
@@ -210,7 +210,7 @@ class PMKIDAttack extends Module
             $pmkids = [];
         } else {
             foreach ($files as $file) {
-                array_push($pmkids,[
+                array_push($pmkids, [
                     'path' => $file,
                     'name' => implode(str_split(basename($file, '.pcapng'), 2), ":")
                 ]);
@@ -220,7 +220,7 @@ class PMKIDAttack extends Module
         $this->response = array("pmkids" => $pmkids);
     }
 
-    protected function downloadPMKID()
+    private function downloadPMKID()
     {
         $fileName = basename($this->request->file, '.pcapng');
 
@@ -228,17 +228,17 @@ class PMKIDAttack extends Module
         exec("cp " . $this->request->file . " /tmp/PMKIDAttack/");
         exec('hcxpcaptool -z /tmp/PMKIDAttack/pmkid.16800 ' . $this->request->file . ' &> ' . self::PATH_MODULE . '/log/output3.txt');
         exec('rm -r ' . self::PATH_MODULE . '/log/output3.txt');
-        exec("cd /tmp/PMKIDAttack/ && tar -czf /tmp/". $fileName .".tar.gz *");
+        exec("cd /tmp/PMKIDAttack/ && tar -czf /tmp/" . $fileName . ".tar.gz *");
         exec("rm -rf /tmp/PMKIDAttack/");
-        $this->response = array("download" => $this->downloadFile("/tmp/". $fileName .".tar.gz"));
+        $this->response = array("download" => $this->downloadFile("/tmp/" . $fileName . ".tar.gz"));
     }
 
-    protected function deletePMKID()
+    private function deletePMKID()
     {
         exec("rm -rf " . $this->request->file);
     }
 
-    protected function getOutput()
+    private function getOutput()
     {
         if (!empty($this->request->pathPMKID)) {
             exec('hcxpcaptool -z /tmp/pmkid.txt ' . $this->request->pathPMKID . ' &> ' . self::PATH_MODULE . '/log/output2.txt');
@@ -251,7 +251,7 @@ class PMKIDAttack extends Module
         $this->response = array("output" => $output);
     }
 
-    protected function getStatusAttack()
+    private function getStatusAttack()
     {
         if ($this->uciGet('pmkidattack.attack.run') == '1') {
             $this->response = array('success' => true);
