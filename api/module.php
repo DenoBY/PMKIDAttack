@@ -131,7 +131,7 @@ class PMKIDAttack extends Module
         }
     }
 
-    protected function checkDependency()
+    private function checkDependency()
     {
         return ((trim(exec("which hcxdumptool")) == '' ? false : true) && $this->uciGet("pmkidattack.module.installed"));
     }
@@ -161,6 +161,7 @@ class PMKIDAttack extends Module
         $this->uciSet('pmkidattack.attack.bssid', $this->request->bssid);
 
         $this->uciSet('pmkidattack.attack.run', '1');
+
         exec("echo " . $this->getFormatBSSID() . " > " . $this->getPathModule() . "/filter.txt");
         exec($this->getPathModule() . "/scripts/PMKIDAttack.sh start " . $this->getFormatBSSID());
 
@@ -181,6 +182,8 @@ class PMKIDAttack extends Module
 
         exec("rm -rf /tmp/" . $this->getFormatBSSID() . '.pcapng');
         exec("rm -rf " . $this->getPathModule() . "/log/output.txt");
+
+        $this->addLog('Stop attack ' . $this->getBSSID());
 
         $this->addLog('Stop attack ' . $this->getBSSID());
 
@@ -248,8 +251,10 @@ class PMKIDAttack extends Module
 
         exec("mkdir /tmp/PMKIDAttack/");
         exec("cp " . $this->request->file . " /tmp/PMKIDAttack/");
+
         exec('hcxpcaptool -z /tmp/PMKIDAttack/pmkid.16800 ' . $this->request->file . ' &> ' . $this->getPathModule() . '/log/output3.txt');
         exec('rm -r ' . $this->getPathModule() . '/log/output3.txt');
+
         exec("cd /tmp/PMKIDAttack/ && tar -czf /tmp/" . $fileName . ".tar.gz *");
         exec("rm -rf /tmp/PMKIDAttack/");
         $this->response = array("download" => $this->downloadFile("/tmp/" . $fileName . ".tar.gz"));
