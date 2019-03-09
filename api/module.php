@@ -6,10 +6,22 @@
 
 namespace pineapple;
 
+putenv('LD_LIBRARY_PATH='.getenv('LD_LIBRARY_PATH').':/sd/lib:/sd/usr/lib');
+putenv('PATH='.getenv('PATH').':/sd/usr/bin:/sd/usr/sbin');
+
 class PMKIDAttack extends Module
 {
     const PATH_MODULE = '/pineapple/modules/PMKIDAttack';
-    const PATH_LOG_FILE = '/var/log/pmkidattack.log';
+    const PATH_MODULE_SD = '/sd/modules/PMKIDAttack';
+
+    protected $logPath = '';
+
+    public function __construct($request, $moduleClass)
+    {
+        $this->logPath = $this->getPathModule() . '/pmkidattack.log';
+
+        parent::__construct($request, $moduleClass);
+    }
 
     public function route()
     {
@@ -56,30 +68,45 @@ class PMKIDAttack extends Module
         }
     }
 
-    protected function clearLog()
-    {
-        if (!file_exists(self::PATH_LOG_FILE)) {
-            touch(self::PATH_LOG_FILE);
+    protected function getPathModule() {
+        $isAvailable = $this->isSDAvailable();
+
+        if ($isAvailable) {
+            return self::PATH_MODULE_SD;
         }
 
-	    exec('rm ' . self::PATH_LOG_FILE);
-	    touch(self::PATH_LOG_FILE);
+        return self::PATH_MODULE;
+    }
+
+    protected function clearLog()
+    {
+        if (!file_exists($this->logPath)) {
+            touch($this->logPath);
+        }
+
+        exec('rm ' . $this->logPath);
+        touch($this->logPath);
     }
 
     protected function getLog()
     {
-        if (!file_exists(self::PATH_LOG_FILE)) {
-            touch(self::PATH_LOG_FILE);
+        if (!file_exists($this->logPath)) {
+            touch($this->logPath);
         }
 
-        $file = file_get_contents(self::PATH_LOG_FILE);
-       
+        $file = file_get_contents($this->logPath);
+
         $this->response = array("pmkidlog" => $file);
+    }
+
+    protected function addLog($massage)
+    {
+        file_put_contents($this->logPath, $this->formatLog($massage), FILE_APPEND);
     }
 
     protected function formatLog($massage)
     {
-        return  '[' . date("Y-m-d H:i:s") . '] ' . $massage . PHP_EOL;
+        return '[' . date("Y-m-d H:i:s") . '] ' . $massage . PHP_EOL;
     }
 
     protected function getDependenciesStatus()
@@ -112,10 +139,10 @@ class PMKIDAttack extends Module
     protected function managerDependencies()
     {
         if (!$this->checkDependency()) {
-            $this->execBackground(self::PATH_MODULE . "/scripts/dependencies.sh install");
+            $this->execBackground($this->getPathModule() . "/scripts/dependencies.sh install");
             $this->response = array('success' => true);
         } else {
-            $this->execBackground(self::PATH_MODULE . "/scripts/dependencies.sh remove");
+            $this->execBackground($this->getPathModule() . "/scripts/dependencies.sh remove");
             $this->response = array('success' => true);
         }
     }
@@ -134,12 +161,10 @@ class PMKIDAttack extends Module
         $this->uciSet('pmkidattack.attack.bssid', $this->request->bssid);
 
         $this->uciSet('pmkidattack.attack.run', '1');
-        exec("echo " . $this->getFormatBSSID() . " > " . self::PATH_MODULE . "/filter.txt");
-        exec(self::PATH_MODULE . "/scripts/PMKIDAttack.sh start " . $this->getFormatBSSID());
+        exec("echo " . $this->getFormatBSSID() . " > " . $this->getPathModule() . "/filter.txt");
+        exec($this->getPathModule() . "/scripts/PMKIDAttack.sh start " . $this->getFormatBSSID());
 
-        $massageLog = 'Start attack ' . $this->request->bssid;
-
-        file_put_contents(self::PATH_LOG_FILE, $this->formatLog($massageLog), FILE_APPEND);
+        $this->addLog('Start attack ' . $this->getBSSID());
 
         $this->response = array('success' => true);
     }
@@ -151,15 +176,13 @@ class PMKIDAttack extends Module
         exec("pkill hcxdumptool");
 
         if ($this->checkPMKID()) {
-            exec('cp /tmp/' . $this->getFormatBSSID() . '.pcapng ' . self::PATH_MODULE . '/pcapng/');
+            exec('cp /tmp/' . $this->getFormatBSSID() . '.pcapng ' . $this->getPathModule() . '/pcapng/');
         }
 
         exec("rm -rf /tmp/" . $this->getFormatBSSID() . '.pcapng');
-        exec("rm -rf " . self::PATH_MODULE . "/log/output.txt");
+        exec("rm -rf " . $this->getPathModule() . "/log/output.txt");
 
-        $massageLog = 'Stop attack ' . $this->getBSSID();
-
-        file_put_contents(self::PATH_LOG_FILE, $this->formatLog($massageLog), FILE_APPEND);
+        $this->addLog('Stop attack ' . $this->getBSSID());
 
         $this->response = array('success' => true);
     }
@@ -168,9 +191,8 @@ class PMKIDAttack extends Module
     protected function catchPMKID()
     {
         if ($this->checkPMKID()) {
-            $massageLog = 'PMKID ' . $this->getBSSID() . ' intercepted!';
+            $this->addLog('PMKID ' . $this->getBSSID() . ' intercepted!');
 
-            file_put_contents(self::PATH_LOG_FILE, $this->formatLog($massageLog), FILE_APPEND);
             $this->response = array('success' => true);
         } else {
             $this->response = array('success' => false);
@@ -194,8 +216,8 @@ class PMKIDAttack extends Module
     {
         $searchLine = 'PMKIDs';
 
-        exec('hcxpcaptool -z /tmp/pmkid.txt /tmp/' . $this->getFormatBSSID() . '.pcapng  &> ' . self::PATH_MODULE . '/log/output.txt');
-        $file = file_get_contents(self::PATH_MODULE . '/log/output.txt');
+        exec('hcxpcaptool -z /tmp/pmkid.txt /tmp/' . $this->getFormatBSSID() . '.pcapng  &> ' . $this->getPathModule() . '/log/output.txt');
+        $file = file_get_contents($this->getPathModule() . '/log/output.txt');
         exec('rm -r /tmp/pmkid.txt');
 
         return strpos($file, $searchLine) !== false;
@@ -204,13 +226,13 @@ class PMKIDAttack extends Module
     protected function getPMKIDFiles()
     {
         $pmkids = [];
-        exec("find -L " . self::PATH_MODULE . "/pcapng/ -type f -name \"*.**pcapng\" 2>&1", $files);
+        exec("find -L " . $this->getPathModule() . "/pcapng/ -type f -name \"*.**pcapng\" 2>&1", $files);
 
         if (strpos($files[0], 'find') !== false) {
             $pmkids = [];
         } else {
             foreach ($files as $file) {
-                array_push($pmkids,[
+                array_push($pmkids, [
                     'path' => $file,
                     'name' => implode(str_split(basename($file, '.pcapng'), 2), ":")
                 ]);
@@ -226,11 +248,11 @@ class PMKIDAttack extends Module
 
         exec("mkdir /tmp/PMKIDAttack/");
         exec("cp " . $this->request->file . " /tmp/PMKIDAttack/");
-        exec('hcxpcaptool -z /tmp/PMKIDAttack/pmkid.16800 ' . $this->request->file . ' &> ' . self::PATH_MODULE . '/log/output3.txt');
-        exec('rm -r ' . self::PATH_MODULE . '/log/output3.txt');
-        exec("cd /tmp/PMKIDAttack/ && tar -czf /tmp/". $fileName .".tar.gz *");
+        exec('hcxpcaptool -z /tmp/PMKIDAttack/pmkid.16800 ' . $this->request->file . ' &> ' . $this->getPathModule() . '/log/output3.txt');
+        exec('rm -r ' . $this->getPathModule() . '/log/output3.txt');
+        exec("cd /tmp/PMKIDAttack/ && tar -czf /tmp/" . $fileName . ".tar.gz *");
         exec("rm -rf /tmp/PMKIDAttack/");
-        $this->response = array("download" => $this->downloadFile("/tmp/". $fileName .".tar.gz"));
+        $this->response = array("download" => $this->downloadFile("/tmp/" . $fileName . ".tar.gz"));
     }
 
     protected function deletePMKID()
@@ -241,11 +263,11 @@ class PMKIDAttack extends Module
     protected function getOutput()
     {
         if (!empty($this->request->pathPMKID)) {
-            exec('hcxpcaptool -z /tmp/pmkid.txt ' . $this->request->pathPMKID . ' &> ' . self::PATH_MODULE . '/log/output2.txt');
-            $output = file_get_contents(self::PATH_MODULE . '/log/output2.txt');
-            exec("rm -rf " . self::PATH_MODULE . "/log/output2.txt");
+            exec('hcxpcaptool -z /tmp/pmkid.txt ' . $this->request->pathPMKID . ' &> ' . $this->getPathModule() . '/log/output2.txt');
+            $output = file_get_contents($this->getPathModule() . '/log/output2.txt');
+            exec("rm -rf " . $this->getPathModule() . "/log/output2.txt");
         } else {
-            $output = file_get_contents(self::PATH_MODULE . '/log/output.txt');
+            $output = file_get_contents($this->getPathModule() . '/log/output.txt');
         }
 
         $this->response = array("output" => $output);
