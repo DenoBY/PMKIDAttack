@@ -1,10 +1,15 @@
-#!/bin/sh
+#!/bin/bash
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/sd/lib:/sd/usr/lib
 export PATH=$PATH:/sd/usr/bin:/sd/usr/sbin
 
 TIMESTAMP=`date "+[%Y-%m-%d %H:%M:%S]"`
-LOGFILE="/var/log/pmkidattack.log"
+
+if [[ -e /sd ]]; then
+LOGFILE="/sd/modules/PMKIDAttack/pmkidattack.log"
+else
+LOGFILE="/pineapple/modules/PMKIDAttack/pmkidattack.log"
+fi
 
 function add_log {
     echo $TIMESTAMP $1 >> $LOGFILE

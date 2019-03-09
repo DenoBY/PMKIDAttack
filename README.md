@@ -2,7 +2,7 @@
 
 The module automates PMKID attack
 
-![alt text](https://i.ibb.co/GdDrdKd/PMKIDAttack.png)
+![alt text](https://i.ibb.co/m6HjG7q/2019-03-09-14-54-09.png)
 
 **Device:** Tetra / NANO
 
