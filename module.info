@@ -2,8 +2,9 @@
     "author": "n3d.b0y",
     "description": "The module automates PMKID attack",
     "devices": [
+        "nano",
         "tetra"
     ],
     "title": "PMKIDAttack",
-    "version": "1.1"
+    "version": "1.2"
 }

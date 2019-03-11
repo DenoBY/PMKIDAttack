@@ -1,60 +1,69 @@
-#!/bin/sh
+#!/bin/bash
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/sd/lib:/sd/usr/lib
 export PATH=$PATH:/sd/usr/bin:/sd/usr/sbin
 
 TIMESTAMP=`date "+[%Y-%m-%d %H:%M:%S]"`
-LOGFILE="/var/log/pmkidattack.log"
+
+if [[ -e /sd ]]; then
+LOGFILE="/sd/modules/PMKIDAttack/pmkidattack.log"
+else
+LOGFILE="/pineapple/modules/PMKIDAttack/pmkidattack.log"
+fi
+
+function add_log {
+    echo $TIMESTAMP $1 >> $LOGFILE
+}
 
 if [[ "$1" == "" ]]; then
-	echo "$TIMESTAMP Argument to script missing! Run with \"dependencies.sh [install|remove]\"" >> $LOGFILE
+	add_log "Argument to script missing! Run with \"dependencies.sh [install|remove]\""
 	exit 1
 fi
 
-echo "$TIMESTAMP Starting dependencies script with argument:" $1 >> $LOGFILE
+add_log "Starting dependencies script with argument: $1"
 
 touch /tmp/PMKIDAttack.progress
 
 if [[ "$1" = "install" ]]; then
 
-	echo "$TIMESTAMP Updating opkg" >> $LOGFILE
-	
+	add_log "Updating opkg"
+
 	if [[ -e /sd ]]; then
-		echo "$TIMESTAMP Installing on sd" >> $LOGFILE
+		add_log "Installing on sd"
 
 	    opkg --dest sd install /pineapple/modules/PMKIDAttack/scripts/ipk/hcxtools_5.1.3-1_ar71xx.ipk >> $LOGFILE
 
 		if [[ $? -ne 0 ]]; then
-			echo "$TIMESTAMP ERROR: opkg --dest sd install hcxtools_5.1.3-1_ar71xx.ipk failed" >> $LOGFILE
+			add_log "ERROR: opkg --dest sd install hcxtools_5.1.3-1_ar71xx.ipk failed"
 			exit 1
 		fi
 
 		opkg --dest sd install /pineapple/modules/PMKIDAttack/scripts/ipk/hcxdumptool_5.1.3-1_ar71xx.ipk >> $LOGFILE
 
 		if [[ $? -ne 0 ]]; then
-			echo "$TIMESTAMP ERROR: opkg --dest sd install hcxdumptool_5.1.3-1_ar71xx.ipk failed" >> $LOGFILE
+			add_log "ERROR: opkg --dest sd install hcxdumptool_5.1.3-1_ar71xx.ipk failed"
 			exit 1
 		fi
 	else
-		echo "$TIMESTAMP Installing on disk" >> $LOGFILE
+		add_log "Installing on disk"
 
         opkg install /pineapple/modules/PMKIDAttack/scripts/ipk/hcxtools_5.1.3-1_ar71xx.ipk
 
 		if [[ $? -ne 0 ]]; then
-			echo "$TIMESTAMP ERROR: opkg install hcxtools_5.1.3-1_ar71xx.ipk failed" >> $LOGFILE
+			add_log "ERROR: opkg install hcxtools_5.1.3-1_ar71xx.ipk failed"
 			exit 1
 		fi
 
 		opkg install /pineapple/modules/PMKIDAttack/scripts/ipk/hcxdumptool_5.1.3-1_ar71xx.ipk
 
 		if [[ $? -ne 0 ]]; then
-			echo "$TIMESTAMP ERROR: opkg install hcxdumptool_5.1.3-1_ar71xx.ipk failed" >> $LOGFILE
+			add_log "ERROR: opkg install hcxdumptool_5.1.3-1_ar71xx.ipk failed"
 			exit 1
 		fi
 	fi
 
-	echo "$TIMESTAMP Installation complete!" >> $LOGFILE
-	
+	add_log "Installation complete!"
+
 	touch /etc/config/pmkidattack
 
 	echo "config pmkidattack 'settings'" > /etc/config/pmkidattack
@@ -66,14 +75,14 @@ if [[ "$1" = "install" ]]; then
 fi
 
 if [[ "$1" = "remove" ]]; then
-	echo "$TIMESTAMP Removing PMKIDAttack module" >> $LOGFILE
+	add_log "Removing a module"
 
     rm -rf /etc/config/PMKIDAttack
-	
-	opkg remove hcxtools 
+
+	opkg remove hcxtools
 	opkg remove hcxdumptool
 
-	echo "$TIMESTAMP Removing complete!" >> $LOGFILE
+	add_log "Removing complete!"
 fi
 
 rm /tmp/PMKIDAttack.progress
